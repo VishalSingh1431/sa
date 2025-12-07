@@ -29,7 +29,7 @@ function ContactUs() {
   }
 
   return (
-    <section className="w-full bg-gradient-to-b from-white to-gray-50 py-12 md:py-16">
+    <section id="contact" className="w-full bg-gradient-to-b from-white to-gray-50 py-12 md:py-16">
       <div className="mx-auto w-full max-w-7xl px-4 md:px-6 lg:px-8">
         {/* Main Card Container */}
         <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 overflow-hidden">
