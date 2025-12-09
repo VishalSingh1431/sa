@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, User } from 'lucide-react';
+import { Menu, X, User, ChevronDown } from 'lucide-react';
 
 const Navbar = () => {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState(null);
+  const [isAdminDropdownOpen, setIsAdminDropdownOpen] = useState(false);
 
   const checkAuthStatus = () => {
     const token = localStorage.getItem('token');
@@ -36,6 +37,17 @@ const Navbar = () => {
       window.removeEventListener('authChange', handleAuthChange);
     };
   }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isAdminDropdownOpen && !event.target.closest('.relative')) {
+        setIsAdminDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isAdminDropdownOpen]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -77,6 +89,56 @@ const Navbar = () => {
           <div className="hidden md:flex md:items-center md:gap-2">
             {isLoggedIn ? (
               <>
+                {(user?.role === 'admin' || user?.role === 'main_admin') && (
+                  <div className="relative">
+                    <button
+                      onClick={() => setIsAdminDropdownOpen(!isAdminDropdownOpen)}
+                      className="flex items-center gap-1 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-xl transition-all duration-300 shadow-lg"
+                    >
+                      Admin Panel
+                      <ChevronDown className={`w-4 h-4 transition-transform ${isAdminDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {isAdminDropdownOpen && (
+                      <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-50">
+                        <Link
+                          to="/admin/trips"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                          onClick={() => setIsAdminDropdownOpen(false)}
+                        >
+                          🎒 Manage Trips
+                        </Link>
+                        <Link
+                          to="/admin/certificates"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                          onClick={() => setIsAdminDropdownOpen(false)}
+                        >
+                          📜 Manage Certificates
+                        </Link>
+                        <Link
+                          to="/admin/destinations"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                          onClick={() => setIsAdminDropdownOpen(false)}
+                        >
+                          🌍 Manage Destinations
+                        </Link>
+                        <Link
+                          to="/admin/reviews"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                          onClick={() => setIsAdminDropdownOpen(false)}
+                        >
+                          ⭐ Manage Reviews
+                        </Link>
+                        <Link
+                          to="/admin/written-reviews"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                          onClick={() => setIsAdminDropdownOpen(false)}
+                        >
+                          ✍️ Manage Written Reviews
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <Link
                   to="/profile"
                   className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-black hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-300"
@@ -136,6 +198,48 @@ const Navbar = () => {
               {/* Mobile Auth Buttons */}
               {isLoggedIn ? (
                 <>
+                  {(user?.role === 'admin' || user?.role === 'main_admin') && (
+                    <div className="mb-2 space-y-1">
+                      <div className="px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-100 rounded-xl">
+                        Admin Panel
+                      </div>
+                      <Link
+                        to="/admin/trips"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-colors"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        🎒 Manage Trips
+                      </Link>
+                      <Link
+                        to="/admin/certificates"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-colors"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        📜 Manage Certificates
+                      </Link>
+                      <Link
+                        to="/admin/destinations"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-colors"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        🌍 Manage Destinations
+                      </Link>
+                      <Link
+                        to="/admin/reviews"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-colors"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        ⭐ Manage Reviews
+                      </Link>
+                      <Link
+                        to="/admin/written-reviews"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-colors"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        ✍️ Manage Written Reviews
+                      </Link>
+                    </div>
+                  )}
                   <div className="pt-2 border-t-2 border-black mt-2">
                     <Link
                       to="/profile"

@@ -46,3 +46,40 @@ export const optionalAuth = (req, res, next) => {
   }
 };
 
+// Middleware to verify Main Admin role
+export const verifyMainAdmin = (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    if (req.user.role !== 'main_admin') {
+      return res.status(403).json({ error: 'Main Admin access required' });
+    }
+
+    next();
+  } catch (error) {
+    return res.status(500).json({ error: 'Authorization check failed' });
+  }
+};
+
+// Middleware to verify Admin role (admin or main_admin)
+export const verifyAdmin = (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    if (req.user.role !== 'admin' && req.user.role !== 'main_admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    next();
+  } catch (error) {
+    return res.status(500).json({ error: 'Authorization check failed' });
+  }
+};
+
+// Middleware to verify Main Admin or Admin role
+export const verifyMainAdminOrAdmin = verifyAdmin; // Same as verifyAdmin
+

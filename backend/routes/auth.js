@@ -2,7 +2,7 @@ import express from 'express';
 import { OAuth2Client } from 'google-auth-library';
 import nodemailer from 'nodemailer';
 import jwt from 'jsonwebtoken';
-import { verifyToken } from '../middleware/auth.js';
+import { verifyToken, verifyMainAdmin } from '../middleware/auth.js';
 import User from '../models/User.js';
 import Otp from '../models/Otp.js';
 import { sendWelcomeEmail } from '../utils/emailService.js';
@@ -206,7 +206,7 @@ router.post('/verify-otp', async (req, res) => {
         // User exists - treat as login instead of signup
         console.log(`User ${email} already exists, logging in via OTP`);
       } else {
-        // Create new user
+        // Create new user with default 'user' role
         user = await User.create({
           email,
           name: null,
@@ -215,6 +215,8 @@ router.post('/verify-otp', async (req, res) => {
           picture: null,
           googleId: null,
         });
+        // Set role to 'user' explicitly (database default should handle this, but ensure it)
+        user = await User.update(user.id, { role: 'user' });
         console.log(`New user created via OTP: ${email}`);
         // Send welcome email
         await sendWelcomeEmail(email, null);
@@ -228,7 +230,7 @@ router.post('/verify-otp', async (req, res) => {
 
     // Generate JWT token (include role for authorization)
     const token = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role || 'normal' },
+      { userId: user.id, email: user.email, role: user.role || 'user' },
       process.env.JWT_SECRET || 'your-secret-key-change-in-production',
       { expiresIn: '7d' }
     );
@@ -243,7 +245,7 @@ router.post('/verify-otp', async (req, res) => {
         phone: user.phone,
         bio: user.bio,
         picture: user.picture,
-        role: user.role || 'normal',
+        role: user.role || 'user',
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },
@@ -302,7 +304,7 @@ router.post('/google', async (req, res) => {
     let user = await User.findByEmail(email);
 
     if (!user) {
-      // New user - create account
+      // New user - create account with default 'user' role
       user = await User.create({
         email,
         name,
@@ -311,6 +313,8 @@ router.post('/google', async (req, res) => {
         phone: null,
         bio: null,
       });
+      // Set role to 'user' explicitly (database default should handle this, but ensure it)
+      user = await User.update(user.id, { role: 'user' });
       console.log(`New user created via Google: ${email}`);
       // Send welcome email
       await sendWelcomeEmail(email, name);
@@ -326,7 +330,7 @@ router.post('/google', async (req, res) => {
 
     // Generate JWT token (include role for authorization)
     const authToken = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role || 'normal' },
+      { userId: user.id, email: user.email, role: user.role || 'user' },
       process.env.JWT_SECRET || 'your-secret-key-change-in-production',
       { expiresIn: '7d' }
     );
@@ -341,7 +345,7 @@ router.post('/google', async (req, res) => {
         phone: user.phone,
         bio: user.bio,
         picture: user.picture,
-        role: user.role || 'normal',
+        role: user.role || 'user',
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },
@@ -420,7 +424,7 @@ router.get('/me', verifyToken, async (req, res) => {
         picture: user.picture,
         phone: user.phone,
         bio: user.bio,
-        role: user.role || 'normal',
+        role: user.role || 'user',
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },
@@ -496,6 +500,98 @@ router.put('/profile', verifyToken, async (req, res) => {
       details: process.env.NODE_ENV === 'development' ? error.message : undefined,
       code: error.code
     });
+  }
+});
+
+// Get all users (Main Admin only)
+router.get('/users', verifyToken, verifyMainAdmin, async (req, res) => {
+  try {
+    const { search, limit = 50, offset = 0 } = req.query;
+    
+    let users;
+    if (search) {
+      users = await User.search(search, parseInt(limit));
+    } else {
+      users = await User.findAll(parseInt(limit), parseInt(offset));
+    }
+
+    res.json({
+      users,
+      count: users.length,
+    });
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// Promote user to admin (Main Admin only)
+router.put('/users/:userId/promote', verifyToken, verifyMainAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Get the user to promote
+    const userToPromote = await User.findById(userId);
+    
+    if (!userToPromote) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Only allow promoting 'user' to 'admin', not main_admin
+    if (userToPromote.role === 'main_admin') {
+      return res.status(400).json({ error: 'Cannot change main admin role' });
+    }
+
+    // Promote user to admin
+    const updatedUser = await User.update(userId, { role: 'admin' });
+
+    res.json({
+      message: 'User promoted to admin successfully',
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        name: updatedUser.name,
+        role: updatedUser.role,
+      },
+    });
+  } catch (error) {
+    console.error('Error promoting user:', error);
+    res.status(500).json({ error: 'Failed to promote user' });
+  }
+});
+
+// Demote admin to user (Main Admin only)
+router.put('/users/:userId/demote', verifyToken, verifyMainAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Get the user to demote
+    const userToDemote = await User.findById(userId);
+    
+    if (!userToDemote) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Cannot demote main admin
+    if (userToDemote.role === 'main_admin') {
+      return res.status(400).json({ error: 'Cannot demote main admin' });
+    }
+
+    // Demote admin to user
+    const updatedUser = await User.update(userId, { role: 'user' });
+
+    res.json({
+      message: 'User demoted to user successfully',
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        name: updatedUser.name,
+        role: updatedUser.role,
+      },
+    });
+  } catch (error) {
+    console.error('Error demoting user:', error);
+    res.status(500).json({ error: 'Failed to demote user' });
   }
 });
 

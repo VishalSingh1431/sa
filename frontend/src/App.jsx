@@ -5,6 +5,11 @@ import Signup from './pages/Signup'
 import Profile from './pages/Profile'
 import Home from './pages/Home'
 import ProductPage from './pages/ProductPage'
+import AdminTrips from './pages/AdminTrips'
+import AdminCertificates from './pages/AdminCertificates'
+import AdminDestinations from './pages/AdminDestinations'
+import AdminReviews from './pages/AdminReviews'
+import AdminWrittenReviews from './pages/AdminWrittenReviews'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import './App.css'
@@ -22,6 +27,11 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/admin/trips" element={<AdminTrips />} />
+              <Route path="/admin/certificates" element={<AdminCertificates />} />
+              <Route path="/admin/destinations" element={<AdminDestinations />} />
+              <Route path="/admin/reviews" element={<AdminReviews />} />
+              <Route path="/admin/written-reviews" element={<AdminWrittenReviews />} />
             </Routes>
           </main>
           <Footer />

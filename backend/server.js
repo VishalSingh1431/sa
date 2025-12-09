@@ -9,6 +9,13 @@ import { initializeDatabase } from './config/database.js';
 import { validateEnv } from './middleware/validateEnv.js';
 import { securityMiddleware } from './middleware/security.js';
 import authRoutes from './routes/auth.js';
+import uploadRoutes from './routes/upload.js';
+import tripsRoutes from './routes/trips.js';
+import enquiriesRoutes from './routes/enquiries.js';
+import certificatesRoutes from './routes/certificates.js';
+import destinationsRoutes from './routes/destinations.js';
+import reviewsRoutes from './routes/reviews.js';
+import writtenReviewsRoutes from './routes/writtenReviews.js';
 
 // Load .env from backend directory (works even when run from different directory)
 const __filename = fileURLToPath(import.meta.url);
@@ -64,9 +71,9 @@ if (NODE_ENV === 'production') {
   app.use(morgan('dev')); // Colored output for development
 }
 
-// Body parsing middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Body parsing middleware - increased limits for large file uploads
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Health check
 app.get('/api/health', async (req, res) => {
@@ -93,6 +100,13 @@ app.get('/api/health', async (req, res) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/upload', uploadRoutes);
+app.use('/api/trips', tripsRoutes);
+app.use('/api/enquiries', enquiriesRoutes);
+app.use('/api/certificates', certificatesRoutes);
+app.use('/api/destinations', destinationsRoutes);
+app.use('/api/reviews', reviewsRoutes);
+app.use('/api/written-reviews', writtenReviewsRoutes);
 
 // 404 handler
 app.use((req, res) => {

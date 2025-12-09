@@ -1,49 +1,78 @@
 import { useState, useEffect } from 'react'
 import CertificateCard from './card/CertificateCard'
-
-const certificates = [
-  {
-    id: 1,
-    title: 'ISO Certified',
-    images: [
-      'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=800&q=60',
-      'https://images.unsplash.com/photo-1586953208448-b95a79798f07?auto=format&fit=crop&w=800&q=60',
-      'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=800&q=60'
-    ],
-    description: 'We are ISO certified for quality and safety standards'
-  },
-  {
-    id: 2,
-    title: 'Legal Compliance',
-    images: [
-      'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=800&q=60',
-      'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=800&q=60',
-      'https://images.unsplash.com/photo-1586953208448-b95a79798f07?auto=format&fit=crop&w=800&q=60'
-    ],
-    description: 'Fully compliant with all travel regulations and licenses'
-  }
-]
+import { certificatesAPI } from '../config/api'
 
 function CertificateLegal() {
-  const [currentIndices, setCurrentIndices] = useState({ 1: 0, 2: 0 })
+  const [certificates, setCertificates] = useState([])
+  const [currentIndices, setCurrentIndices] = useState({})
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const intervals = certificates.map((cert) => {
-      return setInterval(() => {
-        setCurrentIndices((prev) => ({
-          ...prev,
-          [cert.id]: (prev[cert.id] + 1) % cert.images.length
-        }))
-      }, 3500)
-    })
-
-    return () => {
-      intervals.forEach((interval) => clearInterval(interval))
-    }
+    fetchCertificates()
   }, [])
+
+  useEffect(() => {
+    if (certificates.length > 0) {
+      const initialIndices = {}
+      certificates.forEach((cert) => {
+        initialIndices[cert.id] = 0
+      })
+      setCurrentIndices(initialIndices)
+
+      const intervals = certificates.map((cert) => {
+        if (cert.images && cert.images.length > 0) {
+          return setInterval(() => {
+            setCurrentIndices((prev) => ({
+              ...prev,
+              [cert.id]: (prev[cert.id] + 1) % cert.images.length
+            }))
+          }, 3500)
+        }
+        return null
+      }).filter(Boolean)
+
+      return () => {
+        intervals.forEach((interval) => clearInterval(interval))
+      }
+    }
+  }, [certificates])
+
+  const fetchCertificates = async () => {
+    try {
+      setLoading(true)
+      const response = await certificatesAPI.getAllCertificates()
+      setCertificates(response.certificates || [])
+    } catch (error) {
+      console.error('Error fetching certificates:', error)
+      setCertificates([])
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const goToSlide = (certId, index) => {
     setCurrentIndices((prev) => ({ ...prev, [certId]: index }))
+  }
+
+  if (loading) {
+    return (
+      <section className="w-full bg-white py-12">
+        <div className="mx-auto w-full max-w-6xl px-4">
+          <div className="mb-8">
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900">
+              Certificate & Legal
+            </h2>
+          </div>
+          <div className="text-center py-12">
+            <p className="text-gray-600">Loading certificates...</p>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  if (certificates.length === 0) {
+    return null
   }
 
   return (
@@ -60,7 +89,7 @@ function CertificateLegal() {
             <CertificateCard
               key={certificate.id}
               certificate={certificate}
-              currentIndex={currentIndices[certificate.id]}
+              currentIndex={currentIndices[certificate.id] || 0}
               onIndexChange={goToSlide}
             />
           ))}

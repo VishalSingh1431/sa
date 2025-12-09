@@ -250,3 +250,145 @@ export const sendAppointmentConfirmation = async (customerEmail, customerName, b
   }
 };
 
+/**
+ * Send trip enquiry email to admin
+ */
+export const sendTripEnquiryEmail = async (enquiryData) => {
+  try {
+    // Use EMAIL_USER from env, fallback to SMTP_USER if not set
+    const adminEmail = process.env.EMAIL_USER?.trim() || process.env.SMTP_USER?.trim();
+    
+    if (!adminEmail) {
+      console.error('EMAIL_USER not configured in .env file. Cannot send enquiry email.');
+      console.error('Please set EMAIL_USER=your-email@example.com in backend/.env');
+      throw new Error('Email configuration missing. Please set EMAIL_USER in .env file.');
+    }
+
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      console.error('SMTP credentials not configured. Cannot send enquiry email.');
+      console.error('Please set SMTP_USER and SMTP_PASS in backend/.env');
+      throw new Error('Email service not configured. Please set SMTP_USER and SMTP_PASS in .env file.');
+    }
+
+    const transporter = createTransporter();
+
+    const mailOptions = {
+      from: `"VaranasiHub Enquiries" <${process.env.SMTP_USER}>`,
+      to: adminEmail,
+      subject: `New Trip Enquiry: ${enquiryData.tripTitle || 'Trip Enquiry'}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #017233 0%, #01994d 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+            .info-box { background: white; padding: 20px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #017233; }
+            .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+            .info-label { font-weight: bold; color: #555; }
+            .info-value { color: #333; }
+            .message-box { background: white; padding: 15px; border-radius: 5px; margin: 15px 0; border: 1px solid #ddd; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🎯 New Trip Enquiry</h1>
+            </div>
+            <div class="content">
+              <p>You have received a new trip enquiry!</p>
+              
+              <div class="info-box">
+                <h3 style="margin-top: 0; color: #017233;">Trip Details</h3>
+                <div class="info-row">
+                  <span class="info-label">Trip:</span>
+                  <span class="info-value">${enquiryData.tripTitle || 'N/A'}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Location:</span>
+                  <span class="info-value">${enquiryData.tripLocation || 'N/A'}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Price:</span>
+                  <span class="info-value">${enquiryData.tripPrice || 'N/A'}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Selected Month:</span>
+                  <span class="info-value">${enquiryData.selectedMonth || 'Not specified'}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Number of Travelers:</span>
+                  <span class="info-value">${enquiryData.numberOfTravelers || 1}</span>
+                </div>
+              </div>
+
+              <div class="info-box">
+                <h3 style="margin-top: 0; color: #017233;">Customer Details</h3>
+                <div class="info-row">
+                  <span class="info-label">Name:</span>
+                  <span class="info-value">${enquiryData.name}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Email:</span>
+                  <span class="info-value"><a href="mailto:${enquiryData.email}">${enquiryData.email}</a></span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Phone:</span>
+                  <span class="info-value">${enquiryData.phone || 'Not provided'}</span>
+                </div>
+              </div>
+
+              ${enquiryData.message ? `
+              <div class="message-box">
+                <h3 style="margin-top: 0; color: #017233;">Message:</h3>
+                <p style="white-space: pre-wrap;">${enquiryData.message}</p>
+              </div>
+              ` : ''}
+
+              <p style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #ddd; color: #666; font-size: 12px;">
+                Enquiry received on ${new Date().toLocaleString('en-IN', { 
+                  weekday: 'long', 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `
+New Trip Enquiry
+
+Trip Details:
+- Trip: ${enquiryData.tripTitle || 'N/A'}
+- Location: ${enquiryData.tripLocation || 'N/A'}
+- Price: ${enquiryData.tripPrice || 'N/A'}
+- Selected Month: ${enquiryData.selectedMonth || 'Not specified'}
+- Number of Travelers: ${enquiryData.numberOfTravelers || 1}
+
+Customer Details:
+- Name: ${enquiryData.name}
+- Email: ${enquiryData.email}
+- Phone: ${enquiryData.phone || 'Not provided'}
+
+${enquiryData.message ? `Message:\n${enquiryData.message}\n` : ''}
+
+Enquiry received on ${new Date().toLocaleString('en-IN')}
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`Trip enquiry email sent to ${adminEmail}`);
+  } catch (error) {
+    console.error('Error sending trip enquiry email:', error);
+    throw error; // Re-throw so we know if email failed
+  }
+};
+
+

@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
-import { trips } from '../data/trips'
+import { useMemo, useState, useEffect } from 'react'
+import { tripsAPI } from '../config/api'
 import TripCard from './card/TripCard'
+import { Loader2 } from 'lucide-react'
 
 const filters = [
   'All',
@@ -16,11 +17,30 @@ const filters = [
 
 function UpcomingTrips() {
   const [activeFilter, setActiveFilter] = useState('All')
+  const [trips, setTrips] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchTrips()
+  }, [])
+
+  const fetchTrips = async () => {
+    try {
+      setLoading(true)
+      const response = await tripsAPI.getAllTrips()
+      setTrips(response.trips || [])
+    } catch (error) {
+      console.error('Error fetching trips:', error)
+      setTrips([])
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const visibleTrips = useMemo(() => {
     if (activeFilter === 'All') return trips
     return trips.filter((trip) => trip.location === activeFilter)
-  }, [activeFilter])
+  }, [activeFilter, trips])
 
   return (
     <section className="w-full bg-gradient-to-b from-gray-50 to-white py-12 md:py-16">
@@ -67,11 +87,21 @@ function UpcomingTrips() {
             </div>
 
             {/* Trips Grid */}
-            <div className="grid gap-6 sm:gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-              {visibleTrips.slice(0, 8).map((trip) => (
-                <TripCard key={trip.id} trip={trip} />
-              ))}
-            </div>
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+              </div>
+            ) : visibleTrips.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                No trips available at the moment
+              </div>
+            ) : (
+              <div className="grid gap-6 sm:gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+                {visibleTrips.slice(0, 8).map((trip) => (
+                  <TripCard key={trip.id} trip={trip} />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

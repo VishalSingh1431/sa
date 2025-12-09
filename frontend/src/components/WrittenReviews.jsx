@@ -1,49 +1,47 @@
+import { useState, useEffect } from 'react'
 import WrittenReviewCard from './card/WrittenReviewCard'
-
-const writtenReviews = [
-  {
-    id: 1,
-    name: 'Sarah Johnson',
-    rating: 5,
-    date: '2 weeks ago',
-    title: 'Unforgettable Experience',
-    review: 'This was hands down the best travel experience I have ever had. The attention to detail, knowledgeable guides, and stunning destinations made it absolutely perfect. I would highly recommend to anyone looking for an authentic travel experience.',
-    location: 'Spiti Valley Trip',
-    avatar: 'https://i.pravatar.cc/150?img=10'
-  },
-  {
-    id: 2,
-    name: 'Michael Chen',
-    rating: 5,
-    date: '1 month ago',
-    title: 'Exceeded All Expectations',
-    review: 'From the moment we booked until we returned home, everything was seamless. The team was professional, friendly, and went above and beyond to ensure we had an amazing time. The itinerary was well-planned and the destinations were breathtaking.',
-    location: 'Ladakh Adventure',
-    avatar: 'https://i.pravatar.cc/150?img=11'
-  },
-  {
-    id: 3,
-    name: 'Emily Davis',
-    rating: 5,
-    date: '3 weeks ago',
-    title: 'Perfect Getaway',
-    review: 'I cannot say enough good things about this trip. Every aspect was carefully thought out and executed. The accommodations were comfortable, the food was delicious, and the activities were exciting. I will definitely be booking another trip soon!',
-    location: 'Meghalaya Tour',
-    avatar: 'https://i.pravatar.cc/150?img=6'
-  },
-  {
-    id: 4,
-    name: 'David Wilson',
-    rating: 5,
-    date: '1 week ago',
-    title: 'Best Travel Company',
-    review: 'Outstanding service from start to finish. The guides were knowledgeable, the destinations were beautiful, and the overall experience was incredible. This company truly understands what makes a great travel experience and delivers it flawlessly.',
-    location: 'Kerala Backwaters',
-    avatar: 'https://i.pravatar.cc/150?img=14'
-  }
-]
+import { writtenReviewsAPI } from '../config/api'
 
 function WrittenReviews() {
+  const [writtenReviews, setWrittenReviews] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchWrittenReviews()
+  }, [])
+
+  const fetchWrittenReviews = async () => {
+    try {
+      setLoading(true)
+      const response = await writtenReviewsAPI.getAllWrittenReviews()
+      setWrittenReviews(response.writtenReviews || [])
+    } catch (error) {
+      console.error('Error fetching written reviews:', error)
+      setWrittenReviews([])
+    } finally {
+      setLoading(false)
+    }
+  }
+  if (loading) {
+    return (
+      <section className="w-full bg-gradient-to-b from-white to-gray-50 py-12 md:py-16">
+        <div className="mx-auto w-full max-w-7xl px-4 md:px-6 lg:px-8">
+          <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 overflow-hidden">
+            <div className="p-6 md:p-8 lg:p-12">
+              <div className="text-center py-12">
+                <p className="text-gray-600">Loading written reviews...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  if (writtenReviews.length === 0) {
+    return null
+  }
+
   return (
     <section className="w-full bg-gradient-to-b from-white to-gray-50 py-12 md:py-16">
       <div className="mx-auto w-full max-w-7xl px-4 md:px-6 lg:px-8">

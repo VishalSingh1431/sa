@@ -1,57 +1,47 @@
+import { useState, useEffect } from 'react'
 import ReviewCard from './card/ReviewCard'
-
-const reviews = [
-  {
-    id: 1,
-    name: 'Priya Sharma',
-    rating: 5,
-    location: 'Spiti Valley Trip',
-    review: 'Amazing experience! The guides were knowledgeable and the itinerary was perfect.',
-    avatar: 'https://i.pravatar.cc/150?img=1'
-  },
-  {
-    id: 2,
-    name: 'Rahul Kumar',
-    rating: 5,
-    location: 'Ladakh Adventure',
-    review: 'Best trip of my life! Highly recommend this travel company.',
-    avatar: 'https://i.pravatar.cc/150?img=12'
-  },
-  {
-    id: 3,
-    name: 'Anjali Patel',
-    rating: 5,
-    location: 'Meghalaya Tour',
-    review: 'Exceeded expectations in every way. Beautiful destinations and great service.',
-    avatar: 'https://i.pravatar.cc/150?img=5'
-  },
-  {
-    id: 4,
-    name: 'Vikram Singh',
-    rating: 5,
-    location: 'Manali Escape',
-    review: 'Professional team and well-organized trips. Will book again!',
-    avatar: 'https://i.pravatar.cc/150?img=8'
-  },
-  {
-    id: 5,
-    name: 'Sneha Reddy',
-    rating: 5,
-    location: 'Kerala Backwaters',
-    review: 'Fantastic experience from start to finish. Highly satisfied!',
-    avatar: 'https://i.pravatar.cc/150?img=9'
-  },
-  {
-    id: 6,
-    name: 'Arjun Mehta',
-    rating: 5,
-    location: 'Himachal Pradesh',
-    review: 'Wonderful memories created. The trip was worth every penny!',
-    avatar: 'https://i.pravatar.cc/150?img=13'
-  }
-]
+import { reviewsAPI } from '../config/api'
 
 function Reviews() {
+  const [reviews, setReviews] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchReviews()
+  }, [])
+
+  const fetchReviews = async () => {
+    try {
+      setLoading(true)
+      const response = await reviewsAPI.getAllReviews()
+      setReviews(response.reviews || [])
+    } catch (error) {
+      console.error('Error fetching reviews:', error)
+      setReviews([])
+    } finally {
+      setLoading(false)
+    }
+  }
+  if (loading) {
+    return (
+      <section className="w-full bg-gradient-to-b from-gray-50 to-white py-12 md:py-16">
+        <div className="mx-auto w-full max-w-7xl px-4 md:px-6 lg:px-8">
+          <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 overflow-hidden">
+            <div className="p-6 md:p-8 lg:p-12">
+              <div className="text-center py-12">
+                <p className="text-gray-600">Loading reviews...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  if (reviews.length === 0) {
+    return null
+  }
+
   return (
     <section className="w-full bg-gradient-to-b from-gray-50 to-white py-12 md:py-16">
       <div className="mx-auto w-full max-w-7xl px-4 md:px-6 lg:px-8">

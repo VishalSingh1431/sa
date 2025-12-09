@@ -161,6 +161,56 @@ class User {
   }
 
   /**
+   * Get all users (for admin panel)
+   */
+  static async findAll(limit = 100, offset = 0) {
+    try {
+      const query = `
+        SELECT * FROM users 
+        ORDER BY created_at DESC 
+        LIMIT $1 OFFSET $2
+      `;
+      const result = await pool.query(query, [limit, offset]);
+      return result.rows.map(row => this.mapRowToUser(row));
+    } catch (error) {
+      console.error('User.findAll error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Search users by email or name
+   */
+  static async search(searchTerm, limit = 50) {
+    try {
+      const query = `
+        SELECT * FROM users 
+        WHERE email ILIKE $1 OR name ILIKE $1
+        ORDER BY created_at DESC 
+        LIMIT $2
+      `;
+      const result = await pool.query(query, [`%${searchTerm}%`, limit]);
+      return result.rows.map(row => this.mapRowToUser(row));
+    } catch (error) {
+      console.error('User.search error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get user count
+   */
+  static async count() {
+    try {
+      const result = await pool.query('SELECT COUNT(*) as count FROM users');
+      return parseInt(result.rows[0].count);
+    } catch (error) {
+      console.error('User.count error:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Map database row to user object
    */
   static mapRowToUser(row) {
@@ -174,7 +224,7 @@ class User {
       bio: row.bio,
       picture: row.picture,
       googleId: row.google_id,
-      role: row.role || 'normal',
+      role: row.role || 'user',
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };

@@ -1,12 +1,59 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
-import { getTripById } from '../data/trips'
+import { useState, useEffect } from 'react'
+import { tripsAPI, enquiriesAPI } from '../config/api'
+import { Loader2, Calendar, Users, Mail, Phone, MessageSquare, Send, CheckCircle } from 'lucide-react'
+import { useToast } from '../contexts/ToastContext'
 
 function ProductPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const trip = getTripById(id)
+  const toast = useToast()
+  const [trip, setTrip] = useState(null)
+  const [loading, setLoading] = useState(true)
   const [expandedDay, setExpandedDay] = useState(null)
+  const [showEnquiryForm, setShowEnquiryForm] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  
+  const [enquiryData, setEnquiryData] = useState({
+    selectedMonth: '',
+    numberOfTravelers: 1,
+    name: '',
+    email: '',
+    phone: '',
+    message: '',
+  })
+
+  const [errors, setErrors] = useState({})
+
+  useEffect(() => {
+    fetchTrip()
+  }, [id])
+
+  const fetchTrip = async () => {
+    try {
+      setLoading(true)
+      const response = await tripsAPI.getTripById(id)
+      if (response.trip) {
+        setTrip(response.trip)
+      }
+    } catch (error) {
+      console.error('Error fetching trip:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Loading trip...</p>
+        </div>
+      </div>
+    )
+  }
 
   if (!trip) {
     return (
@@ -24,8 +71,8 @@ function ProductPage() {
     )
   }
 
-  // Generate content based on trip location
-  const getTripContent = (location) => {
+  // Get content from trip data (now stored in database)
+  const getTripContent = (tripData) => {
     const contentMap = {
       'Meghalaya': {
         subtitle: '6 Days Adventure Trip',
@@ -358,10 +405,93 @@ function ProductPage() {
       ]
     }
 
-    return contentMap[location] || defaultContent
+    // If trip has all content fields, use them directly
+    if (tripData.intro && tripData.whyVisit && tripData.itinerary) {
+      return {
+        subtitle: tripData.subtitle || `${tripData.duration} Adventure Trip`,
+        intro: tripData.intro,
+        video: tripData.videoUrl || tripData.video || '/video/Slider.mp4',
+        gallery: tripData.gallery && tripData.gallery.length > 0 ? tripData.gallery : [
+          tripData.imageUrl || tripData.image,
+          'https://images.unsplash.com/photo-1501594907352-04cda38ebc29?auto=format&fit=crop&w=900&q=60',
+          'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=900&q=60',
+          'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=900&q=60'
+        ],
+        reviews: tripData.reviews && tripData.reviews.length > 0 ? tripData.reviews : [
+          {
+            rating: 5,
+            text: 'An amazing experience! The trip was well-organized and the destination exceeded all expectations. Highly recommended!',
+            author: 'Recent Traveller'
+          }
+        ],
+        whyVisit: tripData.whyVisit || [],
+        itinerary: tripData.itinerary || [],
+        included: tripData.included || [],
+        notIncluded: tripData.notIncluded || [],
+        notes: tripData.notes || [],
+        faq: tripData.faq || [],
+      }
+    }
+
+    // Fallback to location-based content for backward compatibility
+    return contentMap[tripData.location] || defaultContent
   }
 
-  const content = getTripContent(trip.location)
+  const content = getTripContent(trip)
+
+  const validateEnquiryForm = () => {
+    const newErrors = {};
+    
+    if (!enquiryData.name.trim()) {
+      newErrors.name = 'Name is required';
+    }
+    
+    if (!enquiryData.email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(enquiryData.email)) {
+      newErrors.email = 'Please enter a valid email address';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleEnquirySubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!validateEnquiryForm()) {
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      
+      const monthName = enquiryData.selectedMonth 
+        ? new Date(enquiryData.selectedMonth + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+        : 'Not specified';
+
+      await enquiriesAPI.createEnquiry({
+        tripId: trip.id,
+        tripTitle: trip.title,
+        tripLocation: trip.location,
+        tripPrice: trip.price,
+        selectedMonth: monthName,
+        numberOfTravelers: enquiryData.numberOfTravelers,
+        name: enquiryData.name.trim(),
+        email: enquiryData.email.trim(),
+        phone: enquiryData.phone.trim() || null,
+        message: enquiryData.message.trim() || null,
+      });
+
+      setSubmitted(true);
+      toast.success('Enquiry submitted successfully! We\'ll get back to you soon.');
+    } catch (error) {
+      console.error('Error submitting enquiry:', error);
+      toast.error(error.message || 'Failed to submit enquiry. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white text-gray-900 font-sans">
@@ -377,7 +507,7 @@ function ProductPage() {
           <source src={content.video} type="video/mp4" />
           {/* Fallback image if video doesn't load */}
           <img 
-            src={trip.image} 
+            src={trip.imageUrl || trip.image} 
             alt={trip.title}
             className="w-full h-full object-cover"
           />
@@ -663,37 +793,244 @@ function ProductPage() {
         </div>
       </div>
 
-      {/* Call to Action Card */}
+      {/* Enquiry/Booking Section */}
       <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 pb-16">
-          <section className="relative bg-gradient-to-br from-[#017233] via-[#01994d] to-[#017233] text-white p-10 md:p-12 rounded-3xl text-center shadow-2xl overflow-hidden border-4 border-white">
-            {/* Decorative elements */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32"></div>
-            <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full -ml-24 -mb-24"></div>
-            
-            <div className="relative z-10">
-              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 drop-shadow-lg">
-                Ready to Embark on This Adventure?
-              </h2>
-              <p className="text-lg md:text-xl mb-8 opacity-95">Book your spot now and create memories that last a lifetime!</p>
-              <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
-                <div className="text-center bg-white/10 backdrop-blur-sm rounded-xl px-6 py-4 border border-white/20">
-                  <p className="text-sm opacity-90 mb-1">Starting from</p>
-                  <p className="text-4xl md:text-5xl font-bold">{trip.price}</p>
-                  <p className="text-sm opacity-75 mt-1 line-through">{trip.oldPrice}</p>
+        <section className="relative bg-gradient-to-br from-[#017233] via-[#01994d] to-[#017233] text-white p-8 md:p-12 rounded-3xl text-center shadow-2xl overflow-hidden border-4 border-white">
+          {/* Decorative elements */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32"></div>
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full -ml-24 -mb-24"></div>
+          
+          <div className="relative z-10">
+            {!submitted ? (
+              <>
+                <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 drop-shadow-lg">
+                  Ready to Embark on This Adventure?
+                </h2>
+                <p className="text-lg md:text-xl mb-8 opacity-95">Send us an enquiry and we'll get back to you soon!</p>
+
+                {/* Price Display */}
+                <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-8">
+                  <div className="text-center bg-white/10 backdrop-blur-sm rounded-xl px-6 py-4 border border-white/20">
+                    <p className="text-sm opacity-90 mb-1">Starting from</p>
+                    <p className="text-4xl md:text-5xl font-bold">{trip.price}</p>
+                    {trip.oldPrice && (
+                      <p className="text-sm opacity-75 mt-1 line-through">{trip.oldPrice}</p>
+                    )}
+                  </div>
                 </div>
-                <button className="bg-white text-[#017233] px-10 py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition-all duration-300 shadow-xl hover:shadow-2xl hover:scale-105 transform">
-                  Book Now
-                </button>
-                <button 
-                  onClick={() => navigate('/')}
-                  className="border-2 border-white text-white px-10 py-4 rounded-xl font-bold text-lg hover:bg-white/20 transition-all duration-300 backdrop-blur-sm"
-                >
-                  Back to Trips
-                </button>
+
+                {/* Enquiry Form */}
+                {!showEnquiryForm ? (
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                    <button 
+                      onClick={() => setShowEnquiryForm(true)}
+                      className="bg-white text-[#017233] px-10 py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition-all duration-300 shadow-xl hover:shadow-2xl hover:scale-105 transform flex items-center gap-2"
+                    >
+                      <Send className="w-5 h-5" />
+                      Send Enquiry
+                    </button>
+                    <button 
+                      onClick={() => navigate('/')}
+                      className="border-2 border-white text-white px-10 py-4 rounded-xl font-bold text-lg hover:bg-white/20 transition-all duration-300 backdrop-blur-sm"
+                    >
+                      Back to Trips
+                    </button>
+                  </div>
+                ) : (
+                  <div className="max-w-2xl mx-auto bg-white/10 backdrop-blur-md rounded-2xl p-6 md:p-8 border border-white/20">
+                    <form onSubmit={handleEnquirySubmit} className="space-y-6">
+                      {/* Month Selection */}
+                      <div>
+                        <label className="block text-left text-white font-semibold mb-2 flex items-center gap-2">
+                          <Calendar className="w-5 h-5" />
+                          Select Month
+                        </label>
+                        <input
+                          type="month"
+                          value={enquiryData.selectedMonth}
+                          onChange={(e) => setEnquiryData({ ...enquiryData, selectedMonth: e.target.value })}
+                          min={new Date().toISOString().slice(0, 7)}
+                          className="w-full px-4 py-3 rounded-xl text-gray-900 focus:ring-2 focus:ring-white focus:outline-none"
+                          required
+                        />
+                      </div>
+
+                      {/* Number of Travelers */}
+                      <div>
+                        <label className="block text-left text-white font-semibold mb-2 flex items-center gap-2">
+                          <Users className="w-5 h-5" />
+                          Number of Travelers
+                        </label>
+                        <div className="flex items-center gap-4">
+                          <button
+                            type="button"
+                            onClick={() => setEnquiryData({ ...enquiryData, numberOfTravelers: Math.max(1, enquiryData.numberOfTravelers - 1) })}
+                            className="w-12 h-12 bg-white/20 hover:bg-white/30 rounded-xl font-bold text-xl transition-colors"
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            min="1"
+                            max="50"
+                            value={enquiryData.numberOfTravelers}
+                            onChange={(e) => setEnquiryData({ ...enquiryData, numberOfTravelers: parseInt(e.target.value) || 1 })}
+                            className="w-20 px-4 py-3 rounded-xl text-gray-900 text-center font-bold text-xl focus:ring-2 focus:ring-white focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setEnquiryData({ ...enquiryData, numberOfTravelers: Math.min(50, enquiryData.numberOfTravelers + 1) })}
+                            className="w-12 h-12 bg-white/20 hover:bg-white/30 rounded-xl font-bold text-xl transition-colors"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Name */}
+                      <div>
+                        <label className="block text-left text-white font-semibold mb-2">Full Name *</label>
+                        <input
+                          type="text"
+                          value={enquiryData.name}
+                          onChange={(e) => {
+                            setEnquiryData({ ...enquiryData, name: e.target.value });
+                            if (errors.name) setErrors({ ...errors, name: '' });
+                          }}
+                          className="w-full px-4 py-3 rounded-xl text-gray-900 focus:ring-2 focus:ring-white focus:outline-none"
+                          required
+                        />
+                        {errors.name && <p className="text-red-200 text-sm mt-1">{errors.name}</p>}
+                      </div>
+
+                      {/* Email */}
+                      <div>
+                        <label className="block text-left text-white font-semibold mb-2 flex items-center gap-2">
+                          <Mail className="w-5 h-5" />
+                          Email Address *
+                        </label>
+                        <input
+                          type="email"
+                          value={enquiryData.email}
+                          onChange={(e) => {
+                            setEnquiryData({ ...enquiryData, email: e.target.value });
+                            if (errors.email) setErrors({ ...errors, email: '' });
+                          }}
+                          className="w-full px-4 py-3 rounded-xl text-gray-900 focus:ring-2 focus:ring-white focus:outline-none"
+                          required
+                        />
+                        {errors.email && <p className="text-red-200 text-sm mt-1">{errors.email}</p>}
+                      </div>
+
+                      {/* Phone */}
+                      <div>
+                        <label className="block text-left text-white font-semibold mb-2 flex items-center gap-2">
+                          <Phone className="w-5 h-5" />
+                          Phone Number
+                        </label>
+                        <input
+                          type="tel"
+                          value={enquiryData.phone}
+                          onChange={(e) => setEnquiryData({ ...enquiryData, phone: e.target.value })}
+                          className="w-full px-4 py-3 rounded-xl text-gray-900 focus:ring-2 focus:ring-white focus:outline-none"
+                          placeholder="+91 1234567890"
+                        />
+                      </div>
+
+                      {/* Message */}
+                      <div>
+                        <label className="block text-left text-white font-semibold mb-2 flex items-center gap-2">
+                          <MessageSquare className="w-5 h-5" />
+                          Additional Message
+                        </label>
+                        <textarea
+                          value={enquiryData.message}
+                          onChange={(e) => setEnquiryData({ ...enquiryData, message: e.target.value })}
+                          rows={4}
+                          className="w-full px-4 py-3 rounded-xl text-gray-900 focus:ring-2 focus:ring-white focus:outline-none resize-none"
+                          placeholder="Tell us about any special requirements or questions..."
+                        />
+                      </div>
+
+                      {/* Submit Buttons */}
+                      <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                        <button
+                          type="submit"
+                          disabled={submitting}
+                          className="flex-1 bg-white text-[#017233] px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition-all duration-300 shadow-xl hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                          {submitting ? (
+                            <>
+                              <Loader2 className="w-5 h-5 animate-spin" />
+                              Submitting...
+                            </>
+                          ) : (
+                            <>
+                              <Send className="w-5 h-5" />
+                              Send Enquiry
+                            </>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowEnquiryForm(false);
+                            setEnquiryData({
+                              selectedMonth: '',
+                              numberOfTravelers: 1,
+                              name: '',
+                              email: '',
+                              phone: '',
+                              message: '',
+                            });
+                            setErrors({});
+                          }}
+                          className="px-8 py-4 border-2 border-white text-white rounded-xl font-bold text-lg hover:bg-white/20 transition-all duration-300"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="py-8">
+                <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-300" />
+                <h2 className="text-3xl md:text-4xl font-bold mb-4">Enquiry Submitted Successfully!</h2>
+                <p className="text-lg md:text-xl mb-8 opacity-95">
+                  Thank you for your interest! We'll get back to you soon.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <button
+                    onClick={() => {
+                      setSubmitted(false);
+                      setShowEnquiryForm(false);
+                      setEnquiryData({
+                        selectedMonth: '',
+                        numberOfTravelers: 1,
+                        name: '',
+                        email: '',
+                        phone: '',
+                        message: '',
+                      });
+                    }}
+                    className="bg-white text-[#017233] px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition-all duration-300"
+                  >
+                    Send Another Enquiry
+                  </button>
+                  <button
+                    onClick={() => navigate('/')}
+                    className="border-2 border-white text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-white/20 transition-all duration-300"
+                  >
+                    Back to Trips
+                  </button>
+                </div>
               </div>
-            </div>
-          </section>
-        </div>
+            )}
+          </div>
+        </section>
+      </div>
     </div>
   )
 }

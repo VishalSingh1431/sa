@@ -188,6 +188,50 @@ export const initializeDatabase = async () => {
       console.log('✅ Added missing "google_id" column to users table');
     }
 
+    // Check and add role column with default 'user'
+    const roleColumnCheck = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'users' AND column_name = 'role'
+    `);
+    if (roleColumnCheck.rows.length === 0) {
+      await pool.query(`
+        ALTER TABLE users 
+        ADD COLUMN role VARCHAR(50) DEFAULT 'user' 
+        CHECK (role IN ('main_admin', 'admin', 'user'))
+      `);
+      console.log('✅ Added missing "role" column to users table');
+    } else {
+      // Update existing role column to ensure it has the correct constraint
+      // First, drop existing constraint if any
+      try {
+        await pool.query(`
+          ALTER TABLE users 
+          DROP CONSTRAINT IF EXISTS users_role_check
+        `);
+      } catch (e) {
+        // Ignore if constraint doesn't exist
+      }
+      // Add new constraint
+      await pool.query(`
+        ALTER TABLE users 
+        ADD CONSTRAINT users_role_check 
+        CHECK (role IN ('main_admin', 'admin', 'user'))
+      `);
+      // Set default for existing rows without role
+      await pool.query(`
+        UPDATE users 
+        SET role = 'user' 
+        WHERE role IS NULL OR role NOT IN ('main_admin', 'admin', 'user')
+      `);
+      // Set default value for column
+      await pool.query(`
+        ALTER TABLE users 
+        ALTER COLUMN role SET DEFAULT 'user'
+      `);
+      console.log('✅ Updated "role" column constraints and defaults');
+    }
+
     // Create otps table if it doesn't exist
     await pool.query(`
       CREATE TABLE IF NOT EXISTS otps (
@@ -226,6 +270,103 @@ export const initializeDatabase = async () => {
       )
     `);
 
+    // Create trips table if it doesn't exist
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS trips (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        location VARCHAR(255) NOT NULL,
+        duration VARCHAR(50) NOT NULL,
+        price VARCHAR(50) NOT NULL,
+        old_price VARCHAR(50),
+        image_url TEXT,
+        video_url TEXT,
+        video_public_id TEXT,
+        image_public_id TEXT,
+        gallery JSONB DEFAULT '[]'::jsonb,
+        gallery_public_ids JSONB DEFAULT '[]'::jsonb,
+        subtitle TEXT,
+        intro TEXT,
+        why_visit JSONB DEFAULT '[]'::jsonb,
+        itinerary JSONB DEFAULT '[]'::jsonb,
+        included JSONB DEFAULT '[]'::jsonb,
+        not_included JSONB DEFAULT '[]'::jsonb,
+        notes JSONB DEFAULT '[]'::jsonb,
+        faq JSONB DEFAULT '[]'::jsonb,
+        reviews JSONB DEFAULT '[]'::jsonb,
+        slug VARCHAR(255) UNIQUE,
+        status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'draft', 'archived')),
+        created_by INTEGER REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create certificates table if it doesn't exist
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS certificates (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        images JSONB DEFAULT '[]'::jsonb,
+        images_public_ids JSONB DEFAULT '[]'::jsonb,
+        status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'draft', 'archived')),
+        created_by INTEGER REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create destinations table if it doesn't exist
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS destinations (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        image TEXT,
+        image_public_id TEXT,
+        status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'draft', 'archived')),
+        created_by INTEGER REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create reviews table if it doesn't exist
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS reviews (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        rating INTEGER DEFAULT 5 CHECK (rating >= 1 AND rating <= 5),
+        location VARCHAR(255),
+        review TEXT NOT NULL,
+        avatar TEXT,
+        avatar_public_id TEXT,
+        status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'draft', 'archived')),
+        created_by INTEGER REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create written_reviews table if it doesn't exist
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS written_reviews (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        rating INTEGER DEFAULT 5 CHECK (rating >= 1 AND rating <= 5),
+        date VARCHAR(50),
+        title VARCHAR(255),
+        review TEXT NOT NULL,
+        location VARCHAR(255),
+        avatar TEXT,
+        avatar_public_id TEXT,
+        status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'draft', 'archived')),
+        created_by INTEGER REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Create indexes for better query performance
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
@@ -235,6 +376,14 @@ export const initializeDatabase = async () => {
       CREATE INDEX IF NOT EXISTS idx_businesses_slug ON businesses(slug);
       CREATE INDEX IF NOT EXISTS idx_businesses_email ON businesses(email);
       CREATE INDEX IF NOT EXISTS idx_businesses_status ON businesses(status);
+      CREATE INDEX IF NOT EXISTS idx_trips_slug ON trips(slug);
+      CREATE INDEX IF NOT EXISTS idx_trips_status ON trips(status);
+      CREATE INDEX IF NOT EXISTS idx_trips_location ON trips(location);
+      CREATE INDEX IF NOT EXISTS idx_trips_created_at ON trips(created_at);
+      CREATE INDEX IF NOT EXISTS idx_certificates_status ON certificates(status);
+      CREATE INDEX IF NOT EXISTS idx_destinations_status ON destinations(status);
+      CREATE INDEX IF NOT EXISTS idx_reviews_status ON reviews(status);
+      CREATE INDEX IF NOT EXISTS idx_written_reviews_status ON written_reviews(status);
     `);
 
     // Create function to update updated_at timestamp
@@ -261,6 +410,83 @@ export const initializeDatabase = async () => {
       DROP TRIGGER IF EXISTS update_businesses_updated_at ON businesses;
       CREATE TRIGGER update_businesses_updated_at
       BEFORE UPDATE ON businesses
+      FOR EACH ROW
+      EXECUTE FUNCTION update_updated_at_column();
+    `);
+
+    await pool.query(`
+      DROP TRIGGER IF EXISTS update_trips_updated_at ON trips;
+      CREATE TRIGGER update_trips_updated_at
+      BEFORE UPDATE ON trips
+      FOR EACH ROW
+      EXECUTE FUNCTION update_updated_at_column();
+    `);
+
+    await pool.query(`
+      DROP TRIGGER IF EXISTS update_certificates_updated_at ON certificates;
+      CREATE TRIGGER update_certificates_updated_at
+      BEFORE UPDATE ON certificates
+      FOR EACH ROW
+      EXECUTE FUNCTION update_updated_at_column();
+    `);
+
+    await pool.query(`
+      DROP TRIGGER IF EXISTS update_destinations_updated_at ON destinations;
+      CREATE TRIGGER update_destinations_updated_at
+      BEFORE UPDATE ON destinations
+      FOR EACH ROW
+      EXECUTE FUNCTION update_updated_at_column();
+    `);
+
+    await pool.query(`
+      DROP TRIGGER IF EXISTS update_reviews_updated_at ON reviews;
+      CREATE TRIGGER update_reviews_updated_at
+      BEFORE UPDATE ON reviews
+      FOR EACH ROW
+      EXECUTE FUNCTION update_updated_at_column();
+    `);
+
+    await pool.query(`
+      DROP TRIGGER IF EXISTS update_written_reviews_updated_at ON written_reviews;
+      CREATE TRIGGER update_written_reviews_updated_at
+      BEFORE UPDATE ON written_reviews
+      FOR EACH ROW
+      EXECUTE FUNCTION update_updated_at_column();
+    `);
+
+    // Create enquiries table if it doesn't exist
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS enquiries (
+        id SERIAL PRIMARY KEY,
+        trip_id INTEGER REFERENCES trips(id),
+        trip_title VARCHAR(255),
+        trip_location VARCHAR(255),
+        trip_price VARCHAR(50),
+        selected_month VARCHAR(50),
+        number_of_travelers INTEGER DEFAULT 1,
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        phone VARCHAR(20),
+        message TEXT,
+        status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'contacted', 'booked', 'cancelled')),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create indexes for enquiries
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_enquiries_trip_id ON enquiries(trip_id);
+      CREATE INDEX IF NOT EXISTS idx_enquiries_status ON enquiries(status);
+      CREATE INDEX IF NOT EXISTS idx_enquiries_created_at ON enquiries(created_at);
+      CREATE INDEX IF NOT EXISTS idx_enquiries_email ON enquiries(email);
+    `);
+
+    // Create trigger for enquiries updated_at
+    await pool.query(`
+      DROP TRIGGER IF EXISTS update_enquiries_updated_at ON enquiries;
+      CREATE TRIGGER update_enquiries_updated_at
+      BEFORE UPDATE ON enquiries
       FOR EACH ROW
       EXECUTE FUNCTION update_updated_at_column();
     `);

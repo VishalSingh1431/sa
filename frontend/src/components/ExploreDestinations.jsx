@@ -1,61 +1,56 @@
+import { useState, useEffect } from 'react'
 import DestinationCard from './card/DestinationCard'
-
-const destinations = [
-  {
-    id: 1,
-    name: 'Spiti Valley',
-    image: 'https://images.unsplash.com/photo-1523906630133-f6934a1ab6c8?auto=format&fit=crop&w=800&q=60'
-  },
-  {
-    id: 2,
-    name: 'Meghalaya',
-    image: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=800&q=60'
-  },
-  {
-    id: 3,
-    name: 'Tawang',
-    image: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=800&q=60'
-  },
-  {
-    id: 4,
-    name: 'Ladakh',
-    image: 'https://images.unsplash.com/photo-1539650116574-75c0c6d73bb2?auto=format&fit=crop&w=800&q=60'
-  },
-  {
-    id: 5,
-    name: 'Manali',
-    image: 'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=800&q=60'
-  },
-  {
-    id: 6,
-    name: 'Andaman',
-    image: 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?auto=format&fit=crop&w=800&q=60'
-  },
-  {
-    id: 7,
-    name: 'Rajasthan',
-    image: 'https://images.unsplash.com/photo-1539650116574-75c0c6d73bb2?auto=format&fit=crop&w=800&q=60'
-  },
-  {
-    id: 8,
-    name: 'Goa',
-    image: 'https://images.unsplash.com/photo-1515023115689-589c33041d3c?auto=format&fit=crop&w=800&q=60'
-  },
-  {
-    id: 9,
-    name: 'Kerala',
-    image: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=800&q=60'
-  },
-  {
-    id: 10,
-    name: 'Himachal',
-    image: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=60'
-  }
-]
+import { destinationsAPI } from '../config/api'
 
 function ExploreDestinations() {
+  const [destinations, setDestinations] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchDestinations()
+  }, [])
+
+  const fetchDestinations = async () => {
+    try {
+      setLoading(true)
+      const response = await destinationsAPI.getAllDestinations()
+      setDestinations(response.destinations || [])
+    } catch (error) {
+      console.error('Error fetching destinations:', error)
+      setDestinations([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // Duplicate destinations for seamless infinite scroll
   const duplicatedDestinations = [...destinations, ...destinations]
+
+  if (loading) {
+    return (
+      <section className="w-full bg-gradient-to-b from-gray-50 to-white py-12 md:py-16">
+        <div className="mx-auto w-full max-w-7xl px-4 md:px-6 lg:px-8">
+          <div className="mb-8">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-500 to-cyan-600 flex items-center justify-center text-white text-xl font-bold shadow-lg">
+                🌍
+              </div>
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900">
+                Explore Destinations
+              </h2>
+            </div>
+          </div>
+          <div className="text-center py-12">
+            <p className="text-gray-600">Loading destinations...</p>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  if (destinations.length === 0) {
+    return null
+  }
 
   return (
     <section className="w-full bg-gradient-to-b from-gray-50 to-white py-12 md:py-16 overflow-x-hidden overflow-y-visible">
