@@ -70,3 +70,123 @@
 .animate-scroll:hover {
   animation-play-state: paused;
 }
+
+/* Snake Border Animation - Sky-400 Glow */
+.snake-border-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.snake-border-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 200%;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, rgb(56 189 248), rgb(56 189 248), transparent);
+  box-shadow: 0 0 10px rgb(56 189 248), 0 0 20px rgb(56 189 248), 0 0 30px rgb(56 189 248);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.snake-border-card:hover::before {
+  opacity: 1;
+  animation: snake-move-top 2s linear infinite;
+}
+
+.snake-border-card::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: -100%;
+  height: 200%;
+  width: 3px;
+  background: linear-gradient(180deg, transparent, rgb(56 189 248), rgb(56 189 248), transparent);
+  box-shadow: 0 0 10px rgb(56 189 248), 0 0 20px rgb(56 189 248), 0 0 30px rgb(56 189 248);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.snake-border-card:hover::after {
+  opacity: 1;
+  animation: snake-move-right 2s linear infinite 0.5s;
+}
+
+.snake-border-bottom {
+  position: absolute;
+  bottom: 0;
+  right: -100%;
+  width: 200%;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, rgb(56 189 248), rgb(56 189 248), transparent);
+  box-shadow: 0 0 10px rgb(56 189 248), 0 0 20px rgb(56 189 248), 0 0 30px rgb(56 189 248);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.snake-border-card:hover .snake-border-bottom {
+  opacity: 1;
+  animation: snake-move-bottom 2s linear infinite 1s;
+}
+
+.snake-border-left {
+  position: absolute;
+  left: 0;
+  bottom: -100%;
+  height: 200%;
+  width: 3px;
+  background: linear-gradient(180deg, transparent, rgb(56 189 248), rgb(56 189 248), transparent);
+  box-shadow: 0 0 10px rgb(56 189 248), 0 0 20px rgb(56 189 248), 0 0 30px rgb(56 189 248);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.snake-border-card:hover .snake-border-left {
+  opacity: 1;
+  animation: snake-move-left 2s linear infinite 1.5s;
+}
+
+@keyframes snake-move-top {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+@keyframes snake-move-right {
+  0% {
+    top: -100%;
+  }
+  100% {
+    top: 100%;
+  }
+}
+
+@keyframes snake-move-bottom {
+  0% {
+    right: -100%;
+  }
+  100% {
+    right: 100%;
+  }
+}
+
+@keyframes snake-move-left {
+  0% {
+    bottom: -100%;
+  }
+  100% {
+    bottom: 100%;
+  }
+}

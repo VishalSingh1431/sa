@@ -58,7 +58,7 @@ function BannerSlider() {
 
   return (
     <section className="w-full bg-gray-50 py-8">
-      <div className="mx-auto w-full max-w-6xl px-4">
+      <div className="mx-auto w-full px-4 md:px-6 lg:px-8">
         <div className="relative h-64 sm:h-80 md:h-96 lg:h-[500px] rounded-2xl overflow-hidden shadow-xl">
           {bannerImages.map((banner, index) => (
             <div

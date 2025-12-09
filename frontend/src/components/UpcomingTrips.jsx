@@ -67,7 +67,7 @@ function UpcomingTrips() {
             </div>
 
             {/* Trips Grid */}
-            <div className="grid gap-6 sm:gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 items-stretch">
               {visibleTrips.slice(0, 8).map((trip) => (
                 <TripCard key={trip.id} trip={trip} />
               ))}
